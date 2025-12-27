@@ -1,7 +1,9 @@
-"""MCP tool loader with real MCP client integration."""
+"""MCP tool loader with real MCP client integration and timeout handling."""
 
+import asyncio
 import json
 from contextlib import AsyncExitStack
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
@@ -16,8 +18,47 @@ from .base import Tool, ToolResult
 ConnectionType = Literal["stdio", "sse", "http", "streamable_http"]
 
 
+@dataclass
+class MCPTimeoutConfig:
+    """MCP timeout configuration."""
+
+    connect_timeout: float = 10.0  # Connection timeout (seconds)
+    execute_timeout: float = 60.0  # Tool execution timeout (seconds)
+    sse_read_timeout: float = 120.0  # SSE read timeout (seconds)
+
+
+# Global default timeout config
+_default_timeout_config = MCPTimeoutConfig()
+
+
+def set_mcp_timeout_config(
+    connect_timeout: float | None = None,
+    execute_timeout: float | None = None,
+    sse_read_timeout: float | None = None,
+) -> None:
+    """Set global MCP timeout configuration.
+
+    Args:
+        connect_timeout: Connection timeout in seconds
+        execute_timeout: Tool execution timeout in seconds
+        sse_read_timeout: SSE read timeout in seconds
+    """
+    global _default_timeout_config
+    if connect_timeout is not None:
+        _default_timeout_config.connect_timeout = connect_timeout
+    if execute_timeout is not None:
+        _default_timeout_config.execute_timeout = execute_timeout
+    if sse_read_timeout is not None:
+        _default_timeout_config.sse_read_timeout = sse_read_timeout
+
+
+def get_mcp_timeout_config() -> MCPTimeoutConfig:
+    """Get current MCP timeout configuration."""
+    return _default_timeout_config
+
+
 class MCPTool(Tool):
-    """Wrapper for MCP tools."""
+    """Wrapper for MCP tools with timeout handling."""
 
     def __init__(
         self,
@@ -25,11 +66,13 @@ class MCPTool(Tool):
         description: str,
         parameters: dict[str, Any],
         session: ClientSession,
+        execute_timeout: float | None = None,
     ):
         self._name = name
         self._description = description
         self._parameters = parameters
         self._session = session
+        self._execute_timeout = execute_timeout
 
     @property
     def name(self) -> str:
@@ -44,9 +87,13 @@ class MCPTool(Tool):
         return self._parameters
 
     async def execute(self, **kwargs) -> ToolResult:
-        """Execute MCP tool via the session."""
+        """Execute MCP tool via the session with timeout protection."""
+        timeout = self._execute_timeout or _default_timeout_config.execute_timeout
+
         try:
-            result = await self._session.call_tool(self._name, arguments=kwargs)
+            # Wrap call_tool with timeout
+            async with asyncio.timeout(timeout):
+                result = await self._session.call_tool(self._name, arguments=kwargs)
 
             # MCP tool results are a list of content items
             content_parts = []
@@ -61,12 +108,19 @@ class MCPTool(Tool):
             is_error = result.isError if hasattr(result, "isError") else False
 
             return ToolResult(success=not is_error, content=content_str, error=None if not is_error else "Tool returned error")
+
+        except TimeoutError:
+            return ToolResult(
+                success=False,
+                content="",
+                error=f"MCP tool execution timed out after {timeout}s. The remote server may be slow or unresponsive.",
+            )
         except Exception as e:
             return ToolResult(success=False, content="", error=f"MCP tool execution failed: {str(e)}")
 
 
 class MCPServerConnection:
-    """Manages connection to a single MCP server (STDIO or URL-based)."""
+    """Manages connection to a single MCP server (STDIO or URL-based) with timeout handling."""
 
     def __init__(
         self,
@@ -79,6 +133,10 @@ class MCPServerConnection:
         # URL-based params
         url: str | None = None,
         headers: dict[str, str] | None = None,
+        # Timeout overrides (per-server)
+        connect_timeout: float | None = None,
+        execute_timeout: float | None = None,
+        sse_read_timeout: float | None = None,
     ):
         self.name = name
         self.connection_type = connection_type
@@ -89,37 +147,64 @@ class MCPServerConnection:
         # URL-based
         self.url = url
         self.headers = headers or {}
+        # Timeout settings (per-server overrides)
+        self.connect_timeout = connect_timeout
+        self.execute_timeout = execute_timeout
+        self.sse_read_timeout = sse_read_timeout
         # Connection state
         self.session: ClientSession | None = None
         self.exit_stack: AsyncExitStack | None = None
         self.tools: list[MCPTool] = []
 
+    def _get_connect_timeout(self) -> float:
+        """Get effective connect timeout."""
+        return self.connect_timeout or _default_timeout_config.connect_timeout
+
+    def _get_sse_read_timeout(self) -> float:
+        """Get effective SSE read timeout."""
+        return self.sse_read_timeout or _default_timeout_config.sse_read_timeout
+
+    def _get_execute_timeout(self) -> float:
+        """Get effective execute timeout."""
+        return self.execute_timeout or _default_timeout_config.execute_timeout
+
     async def connect(self) -> bool:
-        """Connect to the MCP server using proper async context management."""
+        """Connect to the MCP server with timeout protection."""
+        connect_timeout = self._get_connect_timeout()
+
         try:
             self.exit_stack = AsyncExitStack()
 
-            if self.connection_type == "stdio":
-                read_stream, write_stream = await self._connect_stdio()
-            elif self.connection_type == "sse":
-                read_stream, write_stream = await self._connect_sse()
-            else:  # http / streamable_http
-                read_stream, write_stream = await self._connect_streamable_http()
+            # Wrap connection with timeout
+            async with asyncio.timeout(connect_timeout):
+                if self.connection_type == "stdio":
+                    read_stream, write_stream = await self._connect_stdio()
+                elif self.connection_type == "sse":
+                    read_stream, write_stream = await self._connect_sse()
+                else:  # http / streamable_http
+                    read_stream, write_stream = await self._connect_streamable_http()
 
-            # Enter client session context
-            session = await self.exit_stack.enter_async_context(ClientSession(read_stream, write_stream))
-            self.session = session
+                # Enter client session context
+                session = await self.exit_stack.enter_async_context(ClientSession(read_stream, write_stream))
+                self.session = session
 
-            # Initialize the session
-            await session.initialize()
+                # Initialize the session
+                await session.initialize()
 
-            # List available tools
-            tools_list = await session.list_tools()
+                # List available tools
+                tools_list = await session.list_tools()
 
-            # Wrap each tool
+            # Wrap each tool with execute timeout
+            execute_timeout = self._get_execute_timeout()
             for tool in tools_list.tools:
                 parameters = tool.inputSchema if hasattr(tool, "inputSchema") else {}
-                mcp_tool = MCPTool(name=tool.name, description=tool.description or "", parameters=parameters, session=session)
+                mcp_tool = MCPTool(
+                    name=tool.name,
+                    description=tool.description or "",
+                    parameters=parameters,
+                    session=session,
+                    execute_timeout=execute_timeout,
+                )
                 self.tools.append(mcp_tool)
 
             conn_info = self.url if self.url else self.command
@@ -128,6 +213,13 @@ class MCPServerConnection:
                 desc = tool.description[:60] if len(tool.description) > 60 else tool.description
                 print(f"  - {tool.name}: {desc}...")
             return True
+
+        except TimeoutError:
+            print(f"✗ Connection to MCP server '{self.name}' timed out after {connect_timeout}s")
+            if self.exit_stack:
+                await self.exit_stack.aclose()
+                self.exit_stack = None
+            return False
 
         except Exception as e:
             print(f"✗ Failed to connect to MCP server '{self.name}': {e}")
@@ -145,14 +237,32 @@ class MCPServerConnection:
         return await self.exit_stack.enter_async_context(stdio_client(server_params))
 
     async def _connect_sse(self):
-        """Connect via SSE transport."""
-        return await self.exit_stack.enter_async_context(sse_client(url=self.url, headers=self.headers if self.headers else None))
+        """Connect via SSE transport with timeout parameters."""
+        connect_timeout = self._get_connect_timeout()
+        sse_read_timeout = self._get_sse_read_timeout()
+
+        return await self.exit_stack.enter_async_context(
+            sse_client(
+                url=self.url,
+                headers=self.headers if self.headers else None,
+                timeout=connect_timeout,
+                sse_read_timeout=sse_read_timeout,
+            )
+        )
 
     async def _connect_streamable_http(self):
-        """Connect via Streamable HTTP transport."""
+        """Connect via Streamable HTTP transport with timeout parameters."""
+        connect_timeout = self._get_connect_timeout()
+        sse_read_timeout = self._get_sse_read_timeout()
+
         # streamablehttp_client returns (read, write, get_session_id)
         read_stream, write_stream, _ = await self.exit_stack.enter_async_context(
-            streamablehttp_client(url=self.url, headers=self.headers if self.headers else None)
+            streamablehttp_client(
+                url=self.url,
+                headers=self.headers if self.headers else None,
+                timeout=connect_timeout,
+                sse_read_timeout=sse_read_timeout,
+            )
         )
         return read_stream, write_stream
 
@@ -192,6 +302,11 @@ async def load_mcp_tools_async(config_path: str = "mcp.json") -> list[Tool]:
     Supported config formats:
     - STDIO: {"command": "...", "args": [...], "env": {...}}
     - URL-based: {"url": "https://...", "type": "sse|http|streamable_http", "headers": {...}}
+
+    Per-server timeout overrides (optional):
+    - "connect_timeout": float - Connection timeout in seconds
+    - "execute_timeout": float - Tool execution timeout in seconds
+    - "sse_read_timeout": float - SSE read timeout in seconds
 
     Args:
         config_path: Path to MCP configuration file (default: "mcp.json")
@@ -245,6 +360,10 @@ async def load_mcp_tools_async(config_path: str = "mcp.json") -> list[Tool]:
                 env=server_config.get("env", {}),
                 url=url,
                 headers=server_config.get("headers", {}),
+                # Per-server timeout overrides from mcp.json
+                connect_timeout=server_config.get("connect_timeout"),
+                execute_timeout=server_config.get("execute_timeout"),
+                sse_read_timeout=server_config.get("sse_read_timeout"),
             )
             success = await connection.connect()
 

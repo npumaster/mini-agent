@@ -9,9 +9,12 @@ import pytest
 
 from mini_agent.tools.mcp_loader import (
     MCPServerConnection,
+    MCPTimeoutConfig,
     _determine_connection_type,
     cleanup_mcp_connections,
+    get_mcp_timeout_config,
     load_mcp_tools_async,
+    set_mcp_timeout_config,
 )
 
 
@@ -133,6 +136,122 @@ class TestMCPServerConnectionInit:
         assert conn.args == []
         assert conn.env == {}
         assert conn.headers == {}
+
+    def test_timeout_overrides(self):
+        """Test per-server timeout override initialization."""
+        conn = MCPServerConnection(
+            name="test-timeout",
+            connection_type="sse",
+            url="https://mcp.example.com/sse",
+            connect_timeout=15.0,
+            execute_timeout=90.0,
+            sse_read_timeout=180.0,
+        )
+        assert conn.connect_timeout == 15.0
+        assert conn.execute_timeout == 90.0
+        assert conn.sse_read_timeout == 180.0
+
+
+# =============================================================================
+# Timeout Configuration Tests
+# =============================================================================
+
+
+class TestMCPTimeoutConfig:
+    """Tests for MCP timeout configuration."""
+
+    def test_default_timeout_config(self):
+        """Test default timeout configuration values."""
+        config = MCPTimeoutConfig()
+        assert config.connect_timeout == 10.0
+        assert config.execute_timeout == 60.0
+        assert config.sse_read_timeout == 120.0
+
+    def test_custom_timeout_config(self):
+        """Test custom timeout configuration values."""
+        config = MCPTimeoutConfig(
+            connect_timeout=5.0,
+            execute_timeout=30.0,
+            sse_read_timeout=60.0,
+        )
+        assert config.connect_timeout == 5.0
+        assert config.execute_timeout == 30.0
+        assert config.sse_read_timeout == 60.0
+
+    def test_set_global_timeout_config(self):
+        """Test setting global timeout configuration."""
+        # Save original config
+        original = get_mcp_timeout_config()
+        original_connect = original.connect_timeout
+        original_execute = original.execute_timeout
+
+        try:
+            # Set new values
+            set_mcp_timeout_config(connect_timeout=20.0, execute_timeout=120.0)
+            config = get_mcp_timeout_config()
+            assert config.connect_timeout == 20.0
+            assert config.execute_timeout == 120.0
+        finally:
+            # Restore original values
+            set_mcp_timeout_config(
+                connect_timeout=original_connect,
+                execute_timeout=original_execute,
+            )
+
+    def test_partial_timeout_config_update(self):
+        """Test partial update of timeout configuration."""
+        original = get_mcp_timeout_config()
+        original_connect = original.connect_timeout
+        original_execute = original.execute_timeout
+        original_sse = original.sse_read_timeout
+
+        try:
+            # Only update connect_timeout
+            set_mcp_timeout_config(connect_timeout=25.0)
+            config = get_mcp_timeout_config()
+            assert config.connect_timeout == 25.0
+            # Other values should remain unchanged from previous test state
+        finally:
+            set_mcp_timeout_config(
+                connect_timeout=original_connect,
+                execute_timeout=original_execute,
+                sse_read_timeout=original_sse,
+            )
+
+
+class TestMCPServerConnectionTimeout:
+    """Tests for MCPServerConnection timeout behavior."""
+
+    def test_get_effective_connect_timeout_with_override(self):
+        """Test getting effective connect timeout with per-server override."""
+        conn = MCPServerConnection(
+            name="test",
+            connection_type="sse",
+            url="https://example.com",
+            connect_timeout=20.0,
+        )
+        assert conn._get_connect_timeout() == 20.0
+
+    def test_get_effective_connect_timeout_without_override(self):
+        """Test getting effective connect timeout using global default."""
+        conn = MCPServerConnection(
+            name="test",
+            connection_type="sse",
+            url="https://example.com",
+        )
+        # Should use global default
+        global_config = get_mcp_timeout_config()
+        assert conn._get_connect_timeout() == global_config.connect_timeout
+
+    def test_get_effective_execute_timeout_with_override(self):
+        """Test getting effective execute timeout with per-server override."""
+        conn = MCPServerConnection(
+            name="test",
+            connection_type="sse",
+            url="https://example.com",
+            execute_timeout=180.0,
+        )
+        assert conn._get_execute_timeout() == 180.0
 
 
 # =============================================================================
@@ -369,6 +488,76 @@ async def test_mcp_tool_execution():
         await cleanup_mcp_connections()
 
 
+@pytest.mark.asyncio
+async def test_connection_timeout_on_unreachable_server():
+    """Test that connection to unreachable server times out properly."""
+    print("\n=== Testing Connection Timeout ===")
+
+    # Set a short timeout for testing
+    original = get_mcp_timeout_config()
+    original_connect = original.connect_timeout
+
+    try:
+        set_mcp_timeout_config(connect_timeout=2.0)
+
+        conn = MCPServerConnection(
+            name="unreachable-test",
+            connection_type="streamable_http",
+            url="https://10.255.255.1:9999/mcp",  # Non-routable IP, will timeout
+        )
+
+        import time
+
+        start = time.time()
+        success = await conn.connect()
+        elapsed = time.time() - start
+
+        assert success is False, "Connection to unreachable server should fail"
+        # Should timeout within reasonable time (connect_timeout + some overhead)
+        assert elapsed < 10.0, f"Should timeout quickly, but took {elapsed:.1f}s"
+        print(f"✅ Connection timed out as expected in {elapsed:.1f}s")
+
+    finally:
+        set_mcp_timeout_config(connect_timeout=original_connect)
+        await cleanup_mcp_connections()
+
+
+@pytest.mark.asyncio
+async def test_per_server_timeout_override_in_config():
+    """Test that per-server timeout overrides from config are respected."""
+    print("\n=== Testing Per-Server Timeout Override ===")
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+        config = {
+            "mcpServers": {
+                "fast-server": {
+                    "url": "https://10.255.255.1:9999/mcp",
+                    "connect_timeout": 1.0,  # Very short timeout
+                    "execute_timeout": 30.0,
+                }
+            }
+        }
+        json.dump(config, f)
+        f.flush()
+
+        try:
+            import time
+
+            start = time.time()
+            tools = await load_mcp_tools_async(f.name)
+            elapsed = time.time() - start
+
+            # Should fail due to unreachable server
+            assert tools == []
+            # Should respect the short 1.0s connect_timeout
+            assert elapsed < 5.0, f"Should use per-server timeout, but took {elapsed:.1f}s"
+            print(f"✅ Per-server timeout override worked, failed in {elapsed:.1f}s")
+
+        finally:
+            await cleanup_mcp_connections()
+            Path(f.name).unlink()
+
+
 async def main():
     """Run all MCP tests."""
     print("=" * 80)
@@ -379,6 +568,7 @@ async def main():
 
     await test_mcp_tools_loading()
     await test_mcp_tool_execution()
+    await test_connection_timeout_on_unreachable_server()
 
     print("\n" + "=" * 80)
     print("MCP tests completed! ✅")

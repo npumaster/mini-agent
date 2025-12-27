@@ -37,6 +37,14 @@ class AgentConfig(BaseModel):
     system_prompt_path: str = "system_prompt.md"
 
 
+class MCPConfig(BaseModel):
+    """MCP (Model Context Protocol) timeout configuration"""
+
+    connect_timeout: float = 10.0  # Connection timeout (seconds)
+    execute_timeout: float = 60.0  # Tool execution timeout (seconds)
+    sse_read_timeout: float = 120.0  # SSE read timeout (seconds)
+
+
 class ToolsConfig(BaseModel):
     """Tools configuration"""
 
@@ -52,6 +60,7 @@ class ToolsConfig(BaseModel):
     # MCP tools
     enable_mcp: bool = True
     mcp_config_path: str = "mcp.json"
+    mcp: MCPConfig = Field(default_factory=MCPConfig)
 
 
 class Config(BaseModel):
@@ -66,9 +75,7 @@ class Config(BaseModel):
         """Load configuration from the default search path."""
         config_path = cls.get_default_config_path()
         if not config_path.exists():
-            raise FileNotFoundError(
-                "Configuration file not found. Run scripts/setup-config.sh or place config.yaml in mini_agent/config/."
-            )
+            raise FileNotFoundError("Configuration file not found. Run scripts/setup-config.sh or place config.yaml in mini_agent/config/.")
         return cls.from_yaml(config_path)
 
     @classmethod
@@ -130,6 +137,15 @@ class Config(BaseModel):
 
         # Parse tools configuration
         tools_data = data.get("tools", {})
+
+        # Parse MCP configuration
+        mcp_data = tools_data.get("mcp", {})
+        mcp_config = MCPConfig(
+            connect_timeout=mcp_data.get("connect_timeout", 10.0),
+            execute_timeout=mcp_data.get("execute_timeout", 60.0),
+            sse_read_timeout=mcp_data.get("sse_read_timeout", 120.0),
+        )
+
         tools_config = ToolsConfig(
             enable_file_tools=tools_data.get("enable_file_tools", True),
             enable_bash=tools_data.get("enable_bash", True),
@@ -138,6 +154,7 @@ class Config(BaseModel):
             skills_dir=tools_data.get("skills_dir", "./skills"),
             enable_mcp=tools_data.get("enable_mcp", True),
             mcp_config_path=tools_data.get("mcp_config_path", "mcp.json"),
+            mcp=mcp_config,
         )
 
         return cls(

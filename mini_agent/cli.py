@@ -29,7 +29,7 @@ from mini_agent.schema import LLMProvider
 from mini_agent.tools.base import Tool
 from mini_agent.tools.bash_tool import BashKillTool, BashOutputTool, BashTool
 from mini_agent.tools.file_tools import EditTool, ReadTool, WriteTool
-from mini_agent.tools.mcp_loader import cleanup_mcp_connections, load_mcp_tools_async
+from mini_agent.tools.mcp_loader import cleanup_mcp_connections, load_mcp_tools_async, set_mcp_timeout_config
 from mini_agent.tools.note_tool import SessionNoteTool
 from mini_agent.tools.skill_tool import create_skill_tools
 from mini_agent.utils import calculate_display_width
@@ -279,6 +279,18 @@ async def initialize_base_tools(config: Config):
     if config.tools.enable_mcp:
         print(f"{Colors.BRIGHT_CYAN}Loading MCP tools...{Colors.RESET}")
         try:
+            # Apply MCP timeout configuration from config.yaml
+            mcp_config = config.tools.mcp
+            set_mcp_timeout_config(
+                connect_timeout=mcp_config.connect_timeout,
+                execute_timeout=mcp_config.execute_timeout,
+                sse_read_timeout=mcp_config.sse_read_timeout,
+            )
+            print(
+                f"{Colors.DIM}  MCP timeouts: connect={mcp_config.connect_timeout}s, "
+                f"execute={mcp_config.execute_timeout}s, sse_read={mcp_config.sse_read_timeout}s{Colors.RESET}"
+            )
+
             # Use priority search for mcp.json
             mcp_config_path = Config.find_config_file(config.tools.mcp_config_path)
             if mcp_config_path:
