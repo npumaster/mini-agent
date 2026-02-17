@@ -311,6 +311,8 @@ class AnthropicClient(LLMClientBase):
         """
         request_params = self._prepare_request(messages, tools)
 
+        converted_tools = self._convert_tools(tools) if tools else None
+
         text_content = ""
         thinking_content = ""
         tool_calls_buffer: dict[str, dict[str, Any]] = {}
@@ -320,7 +322,7 @@ class AnthropicClient(LLMClientBase):
             max_tokens=16384,
             system=request_params["system_message"],
             messages=request_params["api_messages"],
-            tools=request_params["tools"] if tools else None,
+            tools=converted_tools,
         ) as stream:
             async for event in stream:
                 if event.type == "content_block_start":

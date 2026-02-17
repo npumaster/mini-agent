@@ -312,6 +312,8 @@ class OpenAIClient(LLMClientBase):
         """
         request_params = self._prepare_request(messages, tools)
 
+        converted_tools = self._convert_tools(tools) if tools else None
+
         text_content = ""
         reasoning_content = ""
         tool_calls_buffer: dict[str, dict[str, Any]] = {}
@@ -319,7 +321,7 @@ class OpenAIClient(LLMClientBase):
         stream = await self.client.chat.completions.create(
             model=self.model,
             messages=request_params["api_messages"],
-            tools=request_params["tools"] if tools else None,
+            tools=converted_tools,
             stream=True,
         )
 
