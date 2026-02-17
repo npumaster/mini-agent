@@ -1,10 +1,14 @@
 """Base class for LLM clients."""
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Callable
 
 from ..retry import RetryConfig
 from ..schema import LLMResponse, Message
+
+
+# Type alias for streaming callback
+StreamCallback = Callable[[str | None, str | None, list | None], None]
 
 
 class LLMClientBase(ABC):
@@ -48,6 +52,26 @@ class LLMClientBase(ABC):
         Args:
             messages: List of conversation messages
             tools: Optional list of Tool objects or dicts
+
+        Returns:
+            LLMResponse containing the generated content, thinking, and tool calls
+        """
+        pass
+
+    @abstractmethod
+    async def generate_stream(
+        self,
+        messages: list[Message],
+        tools: list[Any] | None = None,
+        on_chunk: StreamCallback | None = None,
+    ) -> LLMResponse:
+        """Generate streaming response from LLM.
+
+        Args:
+            messages: List of conversation messages
+            tools: Optional list of Tool objects or dicts
+            on_chunk: Callback function called for each chunk.
+                      Receives (content, thinking, tool_calls) - each may be None.
 
         Returns:
             LLMResponse containing the generated content, thinking, and tool calls

@@ -52,12 +52,14 @@ class Agent:
         tools: list[Tool],
         max_steps: int = 50,
         workspace_dir: str = "./workspace",
-        token_limit: int = 80000,  # Summary triggered when tokens exceed this value
+        token_limit: int = 80000,
+        use_stream: bool = False,
     ):
         self.llm = llm_client
         self.tools = {tool.name: tool for tool in tools}
         self.max_steps = max_steps
         self.token_limit = token_limit
+        self.use_stream = use_stream
         self.workspace_dir = Path(workspace_dir)
         # Cancellation event for interrupting agent execution (set externally, e.g., by Esc key)
         self.cancel_event: Optional[asyncio.Event] = None
@@ -369,7 +371,36 @@ Requirements:
             self.logger.log_request(messages=self.messages, tools=tool_list)
 
             try:
-                response = await self.llm.generate(messages=self.messages, tools=tool_list)
+                if self.use_stream:
+                    accumulated_content = ""
+                    accumulated_thinking = ""
+                    last_content_len = 0
+                    last_thinking_len = 0
+
+                    def on_chunk(content: str | None, thinking: str | None, tool_calls: list | None):
+                        nonlocal accumulated_content, accumulated_thinking, last_content_len, last_thinking_len
+                        if content is not None:
+                            new_content = content[last_content_len:]
+                            if new_content:
+                                print(new_content, end="", flush=True)
+                            accumulated_content = content
+                            last_content_len = len(content)
+                        if thinking is not None:
+                            new_thinking = thinking[last_thinking_len:]
+                            if new_thinking:
+                                print(new_thinking, end="", flush=True)
+                            accumulated_thinking = thinking
+                            last_thinking_len = len(thinking)
+
+                    response = await self.llm.generate_stream(
+                        messages=self.messages,
+                        tools=tool_list,
+                        on_chunk=on_chunk,
+                    )
+                    response.content = accumulated_content
+                    response.thinking = accumulated_thinking
+                else:
+                    response = await self.llm.generate(messages=self.messages, tools=tool_list)
             except Exception as e:
                 # Check if it's a retry exhausted error
                 from .retry import RetryExhaustedError
@@ -403,15 +434,19 @@ Requirements:
             )
             self.messages.append(assistant_msg)
 
-            # Print thinking if present
-            if response.thinking:
+            # Print thinking if present (skip if using stream, already displayed)
+            if response.thinking and not self.use_stream:
                 print(f"\n{Colors.BOLD}{Colors.MAGENTA}🧠 Thinking:{Colors.RESET}")
                 print(f"{Colors.DIM}{response.thinking}{Colors.RESET}")
 
-            # Print assistant response
-            if response.content:
+            # Print assistant response (skip if using stream, already displayed)
+            if response.content and not self.use_stream:
                 print(f"\n{Colors.BOLD}{Colors.BRIGHT_BLUE}🤖 Assistant:{Colors.RESET}")
                 print(f"{response.content}")
+
+            # For stream mode, add a newline after the content
+            if self.use_stream and (response.content or response.thinking):
+                print()
 
             # Check if task is complete (no tool calls)
             if not response.tool_calls:

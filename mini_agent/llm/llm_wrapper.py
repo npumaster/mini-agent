@@ -9,7 +9,7 @@ import logging
 from ..retry import RetryConfig
 from ..schema import LLMProvider, LLMResponse, Message
 from .anthropic_client import AnthropicClient
-from .base import LLMClientBase
+from .base import LLMClientBase, StreamCallback
 from .openai_client import OpenAIClient
 
 logger = logging.getLogger(__name__)
@@ -125,3 +125,21 @@ class LLMClient:
             LLMResponse containing the generated content
         """
         return await self._client.generate(messages, tools)
+
+    async def generate_stream(
+        self,
+        messages: list[Message],
+        tools: list | None = None,
+        on_chunk: StreamCallback | None = None,
+    ) -> LLMResponse:
+        """Generate streaming response from LLM.
+
+        Args:
+            messages: List of conversation messages
+            tools: Optional list of Tool objects or dicts
+            on_chunk: Callback for each chunk (content, thinking, tool_calls)
+
+        Returns:
+            LLMResponse containing the generated content
+        """
+        return await self._client.generate_stream(messages, tools, on_chunk)

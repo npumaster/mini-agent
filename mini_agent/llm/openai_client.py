@@ -8,7 +8,7 @@ from openai import AsyncOpenAI
 
 from ..retry import RetryConfig, async_retry
 from ..schema import FunctionCall, LLMResponse, Message, TokenUsage, ToolCall
-from .base import LLMClientBase
+from .base import LLMClientBase, StreamCallback
 
 logger = logging.getLogger(__name__)
 
@@ -293,3 +293,87 @@ class OpenAIClient(LLMClientBase):
 
         # Parse and return response
         return self._parse_response(response)
+
+    async def generate_stream(
+        self,
+        messages: list[Message],
+        tools: list[Any] | None = None,
+        on_chunk: StreamCallback | None = None,
+    ) -> LLMResponse:
+        """Generate streaming response from OpenAI LLM.
+
+        Args:
+            messages: List of conversation messages
+            tools: Optional list of available tools
+            on_chunk: Callback for each chunk (content, thinking, tool_calls)
+
+        Returns:
+            LLMResponse containing the generated content
+        """
+        request_params = self._prepare_request(messages, tools)
+
+        text_content = ""
+        reasoning_content = ""
+        tool_calls_buffer: dict[str, dict[str, Any]] = {}
+
+        stream = await self.client.chat.completions.create(
+            model=self.model,
+            messages=request_params["api_messages"],
+            tools=request_params["tools"] if tools else None,
+            stream=True,
+        )
+
+        async for event in stream:
+            if event.choices and len(event.choices) > 0:
+                choice = event.choices[0]
+                if choice.delta:
+                    delta = choice.delta
+
+                    if delta.content:
+                        text_content += delta.content
+                        if on_chunk:
+                            on_chunk(text_content, None, None)
+
+                    if delta.reasoning:
+                        reasoning_content += delta.reasoning
+                        if on_chunk:
+                            on_chunk(None, reasoning_content, None)
+
+                    if delta.tool_calls:
+                        for tc in delta.tool_calls:
+                            tool_id = tc.id or ""
+                            if tool_id not in tool_calls_buffer:
+                                tool_calls_buffer[tool_id] = {"name": "", "arguments": ""}
+                            if tc.function:
+                                if tc.function.name:
+                                    tool_calls_buffer[tool_id]["name"] += tc.function.name
+                                if tc.function.arguments:
+                                    tool_calls_buffer[tool_id]["arguments"] += tc.function.arguments
+
+                if choice.finish_reason:
+                    break
+
+        final_tool_calls = []
+        for tool_id, data in tool_calls_buffer.items():
+            try:
+                arguments = json.loads(data["arguments"]) if data["arguments"] else {}
+            except json.JSONDecodeError:
+                arguments = {"_partial": data["arguments"]}
+            final_tool_calls.append(
+                ToolCall(
+                    id=tool_id,
+                    type="function",
+                    function=FunctionCall(
+                        name=data.get("name", ""),
+                        arguments=arguments,
+                    ),
+                )
+            )
+
+        return LLMResponse(
+            content=text_content,
+            thinking=reasoning_content if reasoning_content else None,
+            tool_calls=final_tool_calls if final_tool_calls else None,
+            finish_reason="stop",
+            usage=None,
+        )
