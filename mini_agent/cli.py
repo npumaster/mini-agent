@@ -269,16 +269,16 @@ def print_stats(agent: Agent, session_start: datetime):
     assistant_msgs = sum(1 for m in agent.messages if m.role == "assistant")
     tool_msgs = sum(1 for m in agent.messages if m.role == "tool")
 
-    print(f"\n{Colors.BOLD}{Colors.BRIGHT_CYAN}Session Statistics:{Colors.RESET}")
+    print(f"\n{Colors.BOLD}{Colors.BRIGHT_CYAN}会话统计:{Colors.RESET}")
     print(f"{Colors.DIM}{'─' * 40}{Colors.RESET}")
-    print(f"  Session Duration: {hours:02d}:{minutes:02d}:{seconds:02d}")
-    print(f"  Total Messages: {len(agent.messages)}")
-    print(f"    - User Messages: {Colors.BRIGHT_GREEN}{user_msgs}{Colors.RESET}")
-    print(f"    - Assistant Replies: {Colors.BRIGHT_BLUE}{assistant_msgs}{Colors.RESET}")
-    print(f"    - Tool Calls: {Colors.BRIGHT_YELLOW}{tool_msgs}{Colors.RESET}")
-    print(f"  Available Tools: {len(agent.tools)}")
+    print(f"  会话时长: {hours:02d}:{minutes:02d}:{seconds:02d}")
+    print(f"  消息总数: {len(agent.messages)}")
+    print(f"    - 用户消息: {Colors.BRIGHT_GREEN}{user_msgs}{Colors.RESET}")
+    print(f"    - 助手回复: {Colors.BRIGHT_BLUE}{assistant_msgs}{Colors.RESET}")
+    print(f"    - 工具调用: {Colors.BRIGHT_YELLOW}{tool_msgs}{Colors.RESET}")
+    print(f"  可用工具: {len(agent.tools)}")
     if agent.api_total_tokens > 0:
-        print(f"  API Tokens Used: {Colors.BRIGHT_MAGENTA}{agent.api_total_tokens:,}{Colors.RESET}")
+        print(f"  API Token 消耗: {Colors.BRIGHT_MAGENTA}{agent.api_total_tokens:,}{Colors.RESET}")
     print(f"{Colors.DIM}{'─' * 40}{Colors.RESET}\n")
 
 
@@ -362,15 +362,15 @@ async def initialize_base_tools(config: Config):
     if config.tools.enable_bash:
         bash_output_tool = BashOutputTool()
         tools.append(bash_output_tool)
-        print(f"{Colors.GREEN}✅ Loaded Bash Output tool{Colors.RESET}")
+        print(f"{Colors.GREEN}✅ 已加载 Bash 输出监控工具{Colors.RESET}")
 
         bash_kill_tool = BashKillTool()
         tools.append(bash_kill_tool)
-        print(f"{Colors.GREEN}✅ Loaded Bash Kill tool{Colors.RESET}")
+        print(f"{Colors.GREEN}✅ 已加载 Bash 终止工具{Colors.RESET}")
 
-    # 3. Claude Skills (loaded from package directory)
+    # 3. Claude Skills (加载扩展技能)
     if config.tools.enable_skills:
-        print(f"{Colors.BRIGHT_CYAN}Loading Claude Skills...{Colors.RESET}")
+        print(f"{Colors.BRIGHT_CYAN}正在加载 Claude Skills...{Colors.RESET}")
         try:
             # Resolve skills directory with priority search
             # Expand ~ to user home directory for portability
@@ -397,15 +397,15 @@ async def initialize_base_tools(config: Config):
             skill_tools, skill_loader = create_skill_tools(skills_dir)
             if skill_tools:
                 tools.extend(skill_tools)
-                print(f"{Colors.GREEN}✅ Loaded Skill tool (get_skill){Colors.RESET}")
+                print(f"{Colors.GREEN}✅ 已加载 Skill 工具 (get_skill){Colors.RESET}")
             else:
-                print(f"{Colors.YELLOW}⚠️  No available Skills found{Colors.RESET}")
+                print(f"{Colors.YELLOW}⚠️  未找到可用的 Skills{Colors.RESET}")
         except Exception as e:
-            print(f"{Colors.YELLOW}⚠️  Failed to load Skills: {e}{Colors.RESET}")
+            print(f"{Colors.YELLOW}⚠️  加载 Skills 失败: {e}{Colors.RESET}")
 
-    # 4. MCP tools (loaded with priority search)
+    # 4. MCP tools (优先级搜索加载)
     if config.tools.enable_mcp:
-        print(f"{Colors.BRIGHT_CYAN}Loading MCP tools...{Colors.RESET}")
+        print(f"{Colors.BRIGHT_CYAN}正在加载 MCP 工具...{Colors.RESET}")
         try:
             # Apply MCP timeout configuration from config.yaml
             mcp_config = config.tools.mcp
@@ -415,7 +415,7 @@ async def initialize_base_tools(config: Config):
                 sse_read_timeout=mcp_config.sse_read_timeout,
             )
             print(
-                f"{Colors.DIM}  MCP timeouts: connect={mcp_config.connect_timeout}s, "
+                f"{Colors.DIM}  MCP 超时配置: connect={mcp_config.connect_timeout}s, "
                 f"execute={mcp_config.execute_timeout}s, sse_read={mcp_config.sse_read_timeout}s{Colors.RESET}"
             )
 
@@ -425,13 +425,13 @@ async def initialize_base_tools(config: Config):
                 mcp_tools = await load_mcp_tools_async(str(mcp_config_path))
                 if mcp_tools:
                     tools.extend(mcp_tools)
-                    print(f"{Colors.GREEN}✅ Loaded {len(mcp_tools)} MCP tools (from: {mcp_config_path}){Colors.RESET}")
+                    print(f"{Colors.GREEN}✅ 已加载 {len(mcp_tools)} 个 MCP 工具 (来源: {mcp_config_path}){Colors.RESET}")
                 else:
-                    print(f"{Colors.YELLOW}⚠️  No available MCP tools found{Colors.RESET}")
+                    print(f"{Colors.YELLOW}⚠️  未找到可用的 MCP 工具{Colors.RESET}")
             else:
-                print(f"{Colors.YELLOW}⚠️  MCP config file not found: {config.tools.mcp_config_path}{Colors.RESET}")
+                print(f"{Colors.YELLOW}⚠️  未找到 MCP 配置文件: {config.tools.mcp_config_path}{Colors.RESET}")
         except Exception as e:
-            print(f"{Colors.YELLOW}⚠️  Failed to load MCP tools: {e}{Colors.RESET}")
+            print(f"{Colors.YELLOW}⚠️  加载 MCP 工具失败: {e}{Colors.RESET}")
 
     print()  # Empty line separator
     return tools, skill_loader
@@ -454,7 +454,7 @@ def add_workspace_tools(tools: List[Tool], config: Config, workspace_dir: Path):
     if config.tools.enable_bash:
         bash_tool = BashTool(workspace_dir=str(workspace_dir))
         tools.append(bash_tool)
-        print(f"{Colors.GREEN}✅ Loaded Bash tool (cwd: {workspace_dir}){Colors.RESET}")
+        print(f"{Colors.GREEN}✅ 已加载 Bash 工具 (工作目录: {workspace_dir}){Colors.RESET}")
 
     # File tools - need workspace to resolve relative paths
     if config.tools.enable_file_tools:
@@ -465,12 +465,12 @@ def add_workspace_tools(tools: List[Tool], config: Config, workspace_dir: Path):
                 EditTool(workspace_dir=str(workspace_dir)),
             ]
         )
-        print(f"{Colors.GREEN}✅ Loaded file operation tools (workspace: {workspace_dir}){Colors.RESET}")
+        print(f"{Colors.GREEN}✅ 已加载文件操作工具 (工作区: {workspace_dir}){Colors.RESET}")
 
     # Session note tool - needs workspace to store memory file
     if config.tools.enable_note:
         tools.append(SessionNoteTool(memory_file=str(workspace_dir / ".agent_memory.json")))
-        print(f"{Colors.GREEN}✅ Loaded session note tool{Colors.RESET}")
+        print(f"{Colors.GREEN}✅ 已加载会话笔记工具{Colors.RESET}")
 
 
 async def _quiet_cleanup():
@@ -576,7 +576,7 @@ async def run_agent(workspace_dir: Path, task: str = None, use_stream: bool = Fa
     # Set retry callback
     if config.llm.retry.enabled:
         llm_client.retry_callback = on_retry
-        print(f"{Colors.GREEN}✅ LLM retry mechanism enabled (max {config.llm.retry.max_retries} retries){Colors.RESET}")
+        print(f"{Colors.GREEN}✅ LLM 重试机制已启用 (最多 {config.llm.retry.max_retries} 次重试){Colors.RESET}")
 
     # 3. Initialize base tools (independent of workspace)
     tools, skill_loader = await initialize_base_tools(config)
@@ -588,7 +588,7 @@ async def run_agent(workspace_dir: Path, task: str = None, use_stream: bool = Fa
     system_prompt_path = Config.find_config_file(config.agent.system_prompt_path)
     if system_prompt_path and system_prompt_path.exists():
         system_prompt = system_prompt_path.read_text(encoding="utf-8")
-        print(f"{Colors.GREEN}✅ Loaded system prompt (from: {system_prompt_path}){Colors.RESET}")
+        print(f"{Colors.GREEN}✅ 已加载系统提示词 (来源: {system_prompt_path}){Colors.RESET}")
     else:
         system_prompt = "You are Mini-Agent, an intelligent assistant powered by MiniMax M2.5 that can help users complete various tasks."
         print(f"{Colors.YELLOW}⚠️  System prompt not found, using default{Colors.RESET}")
@@ -599,7 +599,7 @@ async def run_agent(workspace_dir: Path, task: str = None, use_stream: bool = Fa
         if skills_metadata:
             # Replace placeholder with actual metadata
             system_prompt = system_prompt.replace("{SKILLS_METADATA}", skills_metadata)
-            print(f"{Colors.GREEN}✅ Injected {len(skill_loader.loaded_skills)} skills metadata into system prompt{Colors.RESET}")
+            print(f"{Colors.GREEN}✅ 已注入 {len(skill_loader.loaded_skills)} 个技能元数据到系统提示词{Colors.RESET}")
         else:
             # Remove placeholder if no skills
             system_prompt = system_prompt.replace("{SKILLS_METADATA}", "")
@@ -624,7 +624,7 @@ async def run_agent(workspace_dir: Path, task: str = None, use_stream: bool = Fa
 
     # 8.5 Non-interactive mode: execute task and exit
     if task:
-        print(f"\n{Colors.BRIGHT_BLUE}Agent{Colors.RESET} {Colors.DIM}›{Colors.RESET} {Colors.DIM}Executing task...{Colors.RESET}\n")
+        print(f"\n{Colors.BRIGHT_BLUE}Agent{Colors.RESET} {Colors.DIM}›{Colors.RESET} {Colors.DIM}正在执行任务...{Colors.RESET}\n")
         agent.add_user_message(task)
         try:
             await agent.run()
@@ -717,11 +717,11 @@ async def run_agent(workspace_dir: Path, task: str = None, use_stream: bool = Fa
                     # Clear message history but keep system prompt
                     old_count = len(agent.messages)
                     agent.messages = [agent.messages[0]]  # Keep only system message
-                    print(f"{Colors.GREEN}✅ Cleared {old_count - 1} messages, starting new session{Colors.RESET}\n")
+                    print(f"{Colors.GREEN}✅ 已清空 {old_count - 1} 条消息，开始新会话{Colors.RESET}\n")
                     continue
 
                 elif command == "/history":
-                    print(f"\n{Colors.BRIGHT_CYAN}Current session message count: {len(agent.messages)}{Colors.RESET}\n")
+                    print(f"\n{Colors.BRIGHT_CYAN}当前会话消息数量: {len(agent.messages)}{Colors.RESET}\n")
                     continue
 
                 elif command == "/stats":
