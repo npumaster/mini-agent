@@ -120,7 +120,7 @@ class Agent:
         removed_count = len(self.messages) - last_assistant_idx
         if removed_count > 0:
             self.messages = self.messages[:last_assistant_idx]
-            print(f"{Colors.DIM}   Cleaned up {removed_count} incomplete message(s){Colors.RESET}")
+            print(f"{Colors.DIM}   已清理 {removed_count} 条不完整的消息{Colors.RESET}")
 
     def _estimate_tokens(self) -> int:
         """Accurately calculate token count for message history using tiktoken
@@ -209,14 +209,14 @@ class Agent:
         print(
             f"\n{Colors.BRIGHT_YELLOW}📊 Token usage - Local estimate: {estimated_tokens}, API reported: {self.api_total_tokens}, Limit: {self.token_limit}{Colors.RESET}"
         )
-        print(f"{Colors.BRIGHT_YELLOW}🔄 Triggering message history summarization...{Colors.RESET}")
+        print(f"{Colors.BRIGHT_YELLOW}🔄 正在触发消息历史总结...{Colors.RESET}")
 
         # Find all user message indices (skip system prompt)
         user_indices = [i for i, msg in enumerate(self.messages) if msg.role == "user" and i > 0]
 
         # Need at least 1 user message to perform summary
         if len(user_indices) < 1:
-            print(f"{Colors.BRIGHT_YELLOW}⚠️  Insufficient messages, cannot summarize{Colors.RESET}")
+            print(f"{Colors.BRIGHT_YELLOW}⚠️  消息不足，无法进行总结{Colors.RESET}")
             return
 
         # Build new message list
@@ -257,9 +257,9 @@ class Agent:
         self._skip_next_token_check = True
 
         new_tokens = self._estimate_tokens()
-        print(f"{Colors.BRIGHT_GREEN}✓ Summary completed, local tokens: {estimated_tokens} → {new_tokens}{Colors.RESET}")
-        print(f"{Colors.DIM}  Structure: system + {len(user_indices)} user messages + {summary_count} summaries{Colors.RESET}")
-        print(f"{Colors.DIM}  Note: API token count will update on next LLM call{Colors.RESET}")
+        print(f"{Colors.BRIGHT_GREEN}✓ 总结完成，本地 token: {estimated_tokens} → {new_tokens}{Colors.RESET}")
+        print(f"{Colors.DIM}  结构: system + {len(user_indices)} 条用户消息 + {summary_count} 条总结{Colors.RESET}")
+        print(f"{Colors.DIM}  注意: API token 消耗将在下次 LLM 调用后更新{Colors.RESET}")
 
     async def _create_summary(self, messages: list[Message], round_num: int) -> str:
         """Create summary for one execution round
@@ -312,11 +312,11 @@ Requirements:
             )
 
             summary_text = response.content
-            print(f"{Colors.BRIGHT_GREEN}✓ Summary for round {round_num} generated successfully{Colors.RESET}")
+            print(f"{Colors.BRIGHT_GREEN}✓ 第 {round_num} 轮总结生成成功{Colors.RESET}")
             return summary_text
 
         except Exception as e:
-            print(f"{Colors.BRIGHT_RED}✗ Summary generation failed for round {round_num}: {e}{Colors.RESET}")
+            print(f"{Colors.BRIGHT_RED}✗ 第 {round_num} 轮总结生成失败: {e}{Colors.RESET}")
             # Use simple text summary on failure
             return summary_content
 
@@ -337,7 +337,7 @@ Requirements:
 
         # Start new run, initialize log file
         self.logger.start_new_run()
-        print(f"{Colors.DIM}📝 Log file: {self.logger.get_log_file_path()}{Colors.RESET}")
+        print(f"{Colors.DIM}📝 日志文件: {self.logger.get_log_file_path()}{Colors.RESET}")
 
         step = 0
         run_start_time = perf_counter()
@@ -346,7 +346,7 @@ Requirements:
             # Check for cancellation at start of each step
             if self._check_cancelled():
                 self._cleanup_incomplete_messages()
-                cancel_msg = "Task cancelled by user."
+                cancel_msg = "任务已被用户取消。"
                 print(f"\n{Colors.BRIGHT_YELLOW}⚠️  {cancel_msg}{Colors.RESET}")
                 return cancel_msg
 
@@ -407,10 +407,10 @@ Requirements:
 
                 if isinstance(e, RetryExhaustedError):
                     error_msg = f"LLM call failed after {e.attempts} retries\nLast error: {str(e.last_exception)}"
-                    print(f"\n{Colors.BRIGHT_RED}❌ Retry failed:{Colors.RESET} {error_msg}")
+                    print(f"\n{Colors.BRIGHT_RED}❌ 重试失败:{Colors.RESET} {error_msg}")
                 else:
                     error_msg = f"LLM call failed: {str(e)}"
-                    print(f"\n{Colors.BRIGHT_RED}❌ Error:{Colors.RESET} {error_msg}")
+                    print(f"\n{Colors.BRIGHT_RED}❌ 错误:{Colors.RESET} {error_msg}")
                 return error_msg
 
             # Accumulate API reported token usage
@@ -436,12 +436,12 @@ Requirements:
 
             # Print thinking if present (skip if using stream, already displayed)
             if response.thinking and not self.use_stream:
-                print(f"\n{Colors.BOLD}{Colors.MAGENTA}🧠 Thinking:{Colors.RESET}")
+                print(f"\n{Colors.BOLD}{Colors.MAGENTA}🧠 思考:{Colors.RESET}")
                 print(f"{Colors.DIM}{response.thinking}{Colors.RESET}")
 
             # Print assistant response (skip if using stream, already displayed)
             if response.content and not self.use_stream:
-                print(f"\n{Colors.BOLD}{Colors.BRIGHT_BLUE}🤖 Assistant:{Colors.RESET}")
+                print(f"\n{Colors.BOLD}{Colors.BRIGHT_BLUE}🤖 助手:{Colors.RESET}")
                 print(f"{response.content}")
 
             # For stream mode, add a newline after the content
@@ -452,13 +452,13 @@ Requirements:
             if not response.tool_calls:
                 step_elapsed = perf_counter() - step_start_time
                 total_elapsed = perf_counter() - run_start_time
-                print(f"\n{Colors.DIM}⏱️  Step {step + 1} completed in {step_elapsed:.2f}s (total: {total_elapsed:.2f}s){Colors.RESET}")
+                print(f"\n{Colors.DIM}⏱️  第 {step + 1} 步完成，用时 {step_elapsed:.2f}秒 (总计: {total_elapsed:.2f}秒){Colors.RESET}")
                 return response.content
 
             # Check for cancellation before executing tools
             if self._check_cancelled():
                 self._cleanup_incomplete_messages()
-                cancel_msg = "Task cancelled by user."
+                cancel_msg = "任务已被用户取消。"
                 print(f"\n{Colors.BRIGHT_YELLOW}⚠️  {cancel_msg}{Colors.RESET}")
                 return cancel_msg
 
@@ -469,10 +469,10 @@ Requirements:
                 arguments = tool_call.function.arguments
 
                 # Tool call header
-                print(f"\n{Colors.BRIGHT_YELLOW}🔧 Tool Call:{Colors.RESET} {Colors.BOLD}{Colors.CYAN}{function_name}{Colors.RESET}")
+                print(f"\n{Colors.BRIGHT_YELLOW}🔧 工具调用:{Colors.RESET} {Colors.BOLD}{Colors.CYAN}{function_name}{Colors.RESET}")
 
                 # Arguments (formatted display)
-                print(f"{Colors.DIM}   Arguments:{Colors.RESET}")
+                print(f"{Colors.DIM}   参数:{Colors.RESET}")
                 # Truncate each argument value to avoid overly long output
                 truncated_args = {}
                 for key, value in arguments.items():
@@ -522,9 +522,9 @@ Requirements:
                     result_text = result.content
                     if len(result_text) > 300:
                         result_text = result_text[:300] + f"{Colors.DIM}...{Colors.RESET}"
-                    print(f"{Colors.BRIGHT_GREEN}✓ Result:{Colors.RESET} {result_text}")
+                    print(f"{Colors.BRIGHT_GREEN}✓ 结果:{Colors.RESET} {result_text}")
                 else:
-                    print(f"{Colors.BRIGHT_RED}✗ Error:{Colors.RESET} {Colors.RED}{result.error}{Colors.RESET}")
+                    print(f"{Colors.BRIGHT_RED}✗ 错误:{Colors.RESET} {Colors.RED}{result.error}{Colors.RESET}")
 
                 # Add tool result message
                 tool_msg = Message(
@@ -538,18 +538,18 @@ Requirements:
                 # Check for cancellation after each tool execution
                 if self._check_cancelled():
                     self._cleanup_incomplete_messages()
-                    cancel_msg = "Task cancelled by user."
+                    cancel_msg = "任务已被用户取消。"
                     print(f"\n{Colors.BRIGHT_YELLOW}⚠️  {cancel_msg}{Colors.RESET}")
                     return cancel_msg
 
             step_elapsed = perf_counter() - step_start_time
             total_elapsed = perf_counter() - run_start_time
-            print(f"\n{Colors.DIM}⏱️  Step {step + 1} completed in {step_elapsed:.2f}s (total: {total_elapsed:.2f}s){Colors.RESET}")
+            print(f"\n{Colors.DIM}⏱️  第 {step + 1} 步完成，用时 {step_elapsed:.2f}秒 (总计: {total_elapsed:.2f}秒){Colors.RESET}")
 
             step += 1
 
         # Max steps reached
-        error_msg = f"Task couldn't be completed after {self.max_steps} steps."
+        error_msg = f"任务在 {self.max_steps} 步后仍无法完成。"
         print(f"\n{Colors.BRIGHT_YELLOW}⚠️  {error_msg}{Colors.RESET}")
         return error_msg
 

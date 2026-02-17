@@ -91,30 +91,30 @@ def show_log_directory(open_file_manager: bool = True) -> None:
     print(f"\n{Colors.BRIGHT_CYAN}📁 Log Directory: {log_dir}{Colors.RESET}")
 
     if not log_dir.exists() or not log_dir.is_dir():
-        print(f"{Colors.RED}Log directory does not exist: {log_dir}{Colors.RESET}\n")
+        print(f"{Colors.RED}日志目录不存在: {log_dir}{Colors.RESET}\n")
         return
 
     log_files = list(log_dir.glob("*.log"))
 
     if not log_files:
-        print(f"{Colors.YELLOW}No log files found in directory.{Colors.RESET}\n")
+        print(f"{Colors.YELLOW}目录中没有找到日志文件。{Colors.RESET}\n")
         return
 
     # Sort by modification time (newest first)
     log_files.sort(key=lambda x: x.stat().st_mtime, reverse=True)
 
     print(f"{Colors.DIM}{'─' * 60}{Colors.RESET}")
-    print(f"{Colors.BOLD}{Colors.BRIGHT_YELLOW}Available Log Files (newest first):{Colors.RESET}")
+    print(f"{Colors.BOLD}{Colors.BRIGHT_YELLOW}可用日志文件 (按时间排序):{Colors.RESET}")
 
     for i, log_file in enumerate(log_files[:10], 1):
         mtime = datetime.fromtimestamp(log_file.stat().st_mtime)
         size = log_file.stat().st_size
         size_str = f"{size:,}" if size < 1024 else f"{size / 1024:.1f}K"
         print(f"  {Colors.GREEN}{i:2d}.{Colors.RESET} {Colors.BRIGHT_WHITE}{log_file.name}{Colors.RESET}")
-        print(f"      {Colors.DIM}Modified: {mtime.strftime('%Y-%m-%d %H:%M:%S')}, Size: {size_str}{Colors.RESET}")
+        print(f"      {Colors.DIM}修改时间: {mtime.strftime('%Y-%m-%d %H:%M:%S')}, 大小: {size_str}{Colors.RESET}")
 
     if len(log_files) > 10:
-        print(f"  {Colors.DIM}... and {len(log_files) - 10} more files{Colors.RESET}")
+        print(f"  {Colors.DIM}... 还有 {len(log_files) - 10} 个文件{Colors.RESET}")
 
     print(f"{Colors.DIM}{'─' * 60}{Colors.RESET}")
 
@@ -137,9 +137,9 @@ def _open_directory_in_file_manager(directory: Path) -> None:
         elif system == "Linux":
             subprocess.run(["xdg-open", str(directory)], check=False)
     except FileNotFoundError:
-        print(f"{Colors.YELLOW}Could not open file manager. Please navigate manually.{Colors.RESET}")
+        print(f"{Colors.YELLOW}无法打开文件管理器，请手动导航。{Colors.RESET}")
     except Exception as e:
-        print(f"{Colors.YELLOW}Error opening file manager: {e}{Colors.RESET}")
+        print(f"{Colors.YELLOW}打开文件管理器出错: {e}{Colors.RESET}")
 
 
 def read_log_file(filename: str) -> None:
@@ -152,10 +152,10 @@ def read_log_file(filename: str) -> None:
     log_file = log_dir / filename
 
     if not log_file.exists() or not log_file.is_file():
-        print(f"\n{Colors.RED}❌ Log file not found: {log_file}{Colors.RESET}\n")
+        print(f"\n{Colors.RED}❌ 日志文件未找到: {log_file}{Colors.RESET}\n")
         return
 
-    print(f"\n{Colors.BRIGHT_CYAN}📄 Reading: {log_file}{Colors.RESET}")
+    print(f"\n{Colors.BRIGHT_CYAN}📄 正在读取: {log_file}{Colors.RESET}")
     print(f"{Colors.DIM}{'─' * 80}{Colors.RESET}")
 
     try:
@@ -163,9 +163,9 @@ def read_log_file(filename: str) -> None:
             content = f.read()
         print(content)
         print(f"{Colors.DIM}{'─' * 80}{Colors.RESET}")
-        print(f"\n{Colors.GREEN}✅ End of file{Colors.RESET}\n")
+        print(f"\n{Colors.GREEN}✅ 文件结束{Colors.RESET}\n")
     except Exception as e:
-        print(f"\n{Colors.RED}❌ Error reading file: {e}{Colors.RESET}\n")
+        print(f"\n{Colors.RED}❌ 读取文件出错: {e}{Colors.RESET}\n")
 
 
 def print_banner():
@@ -503,43 +503,43 @@ async def run_agent(workspace_dir: Path, task: str = None, use_stream: bool = Fa
     config_path = Config.get_default_config_path()
 
     if not config_path.exists():
-        print(f"{Colors.RED}❌ Configuration file not found{Colors.RESET}")
+        print(f"{Colors.RED}❌ 配置文件未找到{Colors.RESET}")
         print()
-        print(f"{Colors.BRIGHT_CYAN}📦 Configuration Search Path:{Colors.RESET}")
-        print(f"  {Colors.DIM}1) mini_agent/config/config.yaml{Colors.RESET} (development)")
-        print(f"  {Colors.DIM}2) ~/.mini-agent/config/config.yaml{Colors.RESET} (user)")
-        print(f"  {Colors.DIM}3) <package>/config/config.yaml{Colors.RESET} (installed)")
+        print(f"{Colors.BRIGHT_CYAN}📦 配置搜索路径:{Colors.RESET}")
+        print(f"  {Colors.DIM}1) mini_agent/config/config.yaml{Colors.RESET} (开发模式)")
+        print(f"  {Colors.DIM}2) ~/.mini-agent/config/config.yaml{Colors.RESET} (用户)")
+        print(f"  {Colors.DIM}3) <package>/config/config.yaml{Colors.RESET} (安装目录)")
         print()
-        print(f"{Colors.BRIGHT_YELLOW}🚀 Quick Setup (Recommended):{Colors.RESET}")
+        print(f"{Colors.BRIGHT_YELLOW}🚀 快速设置 (推荐):{Colors.RESET}")
         print(
             f"  {Colors.BRIGHT_GREEN}curl -fsSL https://raw.githubusercontent.com/MiniMax-AI/Mini-Agent/main/scripts/setup-config.sh | bash{Colors.RESET}"
         )
         print()
-        print(f"{Colors.DIM}  This will automatically:{Colors.RESET}")
-        print(f"{Colors.DIM}    • Create ~/.mini-agent/config/{Colors.RESET}")
-        print(f"{Colors.DIM}    • Download configuration files{Colors.RESET}")
-        print(f"{Colors.DIM}    • Guide you to add your API Key{Colors.RESET}")
+        print(f"{Colors.DIM}  这将自动:{Colors.RESET}")
+        print(f"{Colors.DIM}    • 创建 ~/.mini-agent/config/{Colors.RESET}")
+        print(f"{Colors.DIM}    • 下载配置文件{Colors.RESET}")
+        print(f"{Colors.DIM}    • 引导您添加 API Key{Colors.RESET}")
         print()
-        print(f"{Colors.BRIGHT_YELLOW}📝 Manual Setup:{Colors.RESET}")
+        print(f"{Colors.BRIGHT_YELLOW}📝 手动设置:{Colors.RESET}")
         user_config_dir = Path.home() / ".mini-agent" / "config"
         example_config = Config.get_package_dir() / "config" / "config-example.yaml"
         print(f"  {Colors.DIM}mkdir -p {user_config_dir}{Colors.RESET}")
         print(f"  {Colors.DIM}cp {example_config} {user_config_dir}/config.yaml{Colors.RESET}")
-        print(f"  {Colors.DIM}# Then edit {user_config_dir}/config.yaml to add your API Key{Colors.RESET}")
+        print(f"  {Colors.DIM}# 然后编辑 {user_config_dir}/config.yaml 添加您的 API Key{Colors.RESET}")
         print()
         return
 
     try:
         config = Config.from_yaml(config_path)
     except FileNotFoundError:
-        print(f"{Colors.RED}❌ Error: Configuration file not found: {config_path}{Colors.RESET}")
+        print(f"{Colors.RED}❌ 错误: 配置文件未找到: {config_path}{Colors.RESET}")
         return
     except ValueError as e:
-        print(f"{Colors.RED}❌ Error: {e}{Colors.RESET}")
-        print(f"{Colors.YELLOW}Please check the configuration file format{Colors.RESET}")
+        print(f"{Colors.RED}❌ 错误: {e}{Colors.RESET}")
+        print(f"{Colors.YELLOW}请检查配置文件格式{Colors.RESET}")
         return
     except Exception as e:
-        print(f"{Colors.RED}❌ Error: Failed to load configuration file: {e}{Colors.RESET}")
+        print(f"{Colors.RED}❌ 错误: 加载配置文件失败: {e}{Colors.RESET}")
         return
 
     # 2. Initialize LLM client
@@ -558,9 +558,9 @@ async def run_agent(workspace_dir: Path, task: str = None, use_stream: bool = Fa
     # Create retry callback function to display retry information in terminal
     def on_retry(exception: Exception, attempt: int):
         """Retry callback function to display retry information"""
-        print(f"\n{Colors.BRIGHT_YELLOW}⚠️  LLM call failed (attempt {attempt}): {str(exception)}{Colors.RESET}")
+        print(f"\n{Colors.BRIGHT_YELLOW}⚠️  LLM 调用失败 (尝试 {attempt}): {str(exception)}{Colors.RESET}")
         next_delay = retry_config.calculate_delay(attempt - 1)
-        print(f"{Colors.DIM}   Retrying in {next_delay:.1f}s (attempt {attempt + 1})...{Colors.RESET}")
+        print(f"{Colors.DIM}   将在 {next_delay:.1f} 秒后重试 (尝试 {attempt + 1})...{Colors.RESET}")
 
     # Convert provider string to LLMProvider enum
     provider = LLMProvider.ANTHROPIC if config.llm.provider.lower() == "anthropic" else LLMProvider.OPENAI
@@ -591,7 +591,7 @@ async def run_agent(workspace_dir: Path, task: str = None, use_stream: bool = Fa
         print(f"{Colors.GREEN}✅ 已加载系统提示词 (来源: {system_prompt_path}){Colors.RESET}")
     else:
         system_prompt = "You are Mini-Agent, an intelligent assistant powered by MiniMax M2.5 that can help users complete various tasks."
-        print(f"{Colors.YELLOW}⚠️  System prompt not found, using default{Colors.RESET}")
+        print(f"{Colors.YELLOW}⚠️  系统提示词未找到，使用默认提示词{Colors.RESET}")
 
     # 6. Inject Skills Metadata into System Prompt (Progressive Disclosure - Level 1)
     if skill_loader:
@@ -705,7 +705,7 @@ async def run_agent(workspace_dir: Path, task: str = None, use_stream: bool = Fa
                 command = user_input.lower()
 
                 if command in ["/exit", "/quit", "/q"]:
-                    print(f"\n{Colors.BRIGHT_YELLOW}👋 Goodbye! Thanks for using Mini Agent{Colors.RESET}\n")
+                    print(f"\n{Colors.BRIGHT_YELLOW}👋 再见！感谢使用 Mini Agent{Colors.RESET}\n")
                     print_stats(agent, session_start)
                     break
 
@@ -741,13 +741,13 @@ async def run_agent(workspace_dir: Path, task: str = None, use_stream: bool = Fa
                     continue
 
                 else:
-                    print(f"{Colors.RED}❌ Unknown command: {user_input}{Colors.RESET}")
-                    print(f"{Colors.DIM}Type /help to see available commands{Colors.RESET}\n")
+                    print(f"{Colors.RED}❌ 未知命令: {user_input}{Colors.RESET}")
+                    print(f"{Colors.DIM}输入 /help 查看可用命令{Colors.RESET}\n")
                     continue
 
             # Normal conversation - exit check
             if user_input.lower() in ["exit", "quit", "q"]:
-                print(f"\n{Colors.BRIGHT_YELLOW}👋 Goodbye! Thanks for using Mini Agent{Colors.RESET}\n")
+                print(f"\n{Colors.BRIGHT_YELLOW}👋 再见！感谢使用 Mini Agent{Colors.RESET}\n")
                 print_stats(agent, session_start)
                 break
 
@@ -775,7 +775,7 @@ async def run_agent(workspace_dir: Path, task: str = None, use_stream: bool = Fa
                             if msvcrt.kbhit():
                                 char = msvcrt.getch()
                                 if char == b"\x1b":  # Esc
-                                    print(f"\n{Colors.BRIGHT_YELLOW}⏹️  Esc pressed, cancelling...{Colors.RESET}")
+                                    print(f"\n{Colors.BRIGHT_YELLOW}⏹️  Esc 键按下，正在取消...{Colors.RESET}")
                                     esc_cancelled[0] = True
                                     cancel_event.set()
                                     break
@@ -800,7 +800,7 @@ async def run_agent(workspace_dir: Path, task: str = None, use_stream: bool = Fa
                             if rlist:
                                 char = sys.stdin.read(1)
                                 if char == "\x1b":  # Esc
-                                    print(f"\n{Colors.BRIGHT_YELLOW}⏹️  Esc pressed, cancelling...{Colors.RESET}")
+                                    print(f"\n{Colors.BRIGHT_YELLOW}⏹️  Esc 键按下，正在取消...{Colors.RESET}")
                                     esc_cancelled[0] = True
                                     cancel_event.set()
                                     break
@@ -827,7 +827,7 @@ async def run_agent(workspace_dir: Path, task: str = None, use_stream: bool = Fa
                 _ = agent_task.result()
 
             except asyncio.CancelledError:
-                print(f"\n{Colors.BRIGHT_YELLOW}⚠️  Agent execution cancelled{Colors.RESET}")
+                print(f"\n{Colors.BRIGHT_YELLOW}⚠️  Agent 执行已取消{Colors.RESET}")
             finally:
                 agent.cancel_event = None
                 esc_listener_stop.set()
