@@ -35,6 +35,7 @@ class AgentConfig(BaseModel):
     max_steps: int = 50
     workspace_dir: str = "./workspace"
     system_prompt_path: str = "system_prompt.md"
+    show_thinking: bool = False  # 是否显示思考过程
 
 
 class MCPConfig(BaseModel):

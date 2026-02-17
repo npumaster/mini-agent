@@ -320,6 +320,11 @@ Examples:
         help="Enable streaming output for LLM responses",
     )
     parser.add_argument(
+        "--no-thinking",
+        action="store_true",
+        help="Disable thinking output",
+    )
+    parser.add_argument(
         "--version",
         "-v",
         action="version",
@@ -489,13 +494,14 @@ async def _quiet_cleanup():
         pass
 
 
-async def run_agent(workspace_dir: Path, task: str = None, use_stream: bool = False):
+async def run_agent(workspace_dir: Path, task: str = None, use_stream: bool = False, show_thinking: bool = False):
     """Run Agent in interactive or non-interactive mode.
 
     Args:
         workspace_dir: Workspace directory path
         task: If provided, execute this task and exit (non-interactive mode)
         use_stream: Enable streaming output for LLM responses
+        show_thinking: Enable thinking output
     """
     session_start = datetime.now()
 
@@ -615,6 +621,7 @@ async def run_agent(workspace_dir: Path, task: str = None, use_stream: bool = Fa
         max_steps=config.agent.max_steps,
         workspace_dir=str(workspace_dir),
         use_stream=use_stream,
+        show_thinking=show_thinking,
     )
 
     # 8. Display welcome information
@@ -874,7 +881,7 @@ def main():
     workspace_dir.mkdir(parents=True, exist_ok=True)
 
     # Run the agent (config always loaded from package directory)
-    asyncio.run(run_agent(workspace_dir, task=args.task, use_stream=args.stream))
+    asyncio.run(run_agent(workspace_dir, task=args.task, use_stream=args.stream, show_thinking=not args.no_thinking))
 
 
 if __name__ == "__main__":

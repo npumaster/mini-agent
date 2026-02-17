@@ -54,12 +54,14 @@ class Agent:
         workspace_dir: str = "./workspace",
         token_limit: int = 80000,
         use_stream: bool = False,
+        show_thinking: bool = False,
     ):
         self.llm = llm_client
         self.tools = {tool.name: tool for tool in tools}
         self.max_steps = max_steps
         self.token_limit = token_limit
         self.use_stream = use_stream
+        self.show_thinking = show_thinking
         self.workspace_dir = Path(workspace_dir)
         # Cancellation event for interrupting agent execution (set externally, e.g., by Esc key)
         self.cancel_event: Optional[asyncio.Event] = None
@@ -385,7 +387,7 @@ Requirements:
                                 print(new_content, end="", flush=True)
                             accumulated_content = content
                             last_content_len = len(content)
-                        if thinking is not None:
+                        if thinking is not None and self.show_thinking:
                             new_thinking = thinking[last_thinking_len:]
                             if new_thinking:
                                 print(new_thinking, end="", flush=True)
@@ -435,7 +437,7 @@ Requirements:
             self.messages.append(assistant_msg)
 
             # Print thinking if present (skip if using stream, already displayed)
-            if response.thinking and not self.use_stream:
+            if response.thinking and not self.use_stream and self.show_thinking:
                 print(f"\n{Colors.BOLD}{Colors.MAGENTA}🧠 思考:{Colors.RESET}")
                 print(f"{Colors.DIM}{response.thinking}{Colors.RESET}")
 
