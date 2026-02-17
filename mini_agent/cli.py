@@ -191,31 +191,31 @@ def print_banner():
 def print_help():
     """Print help information"""
     help_text = f"""
-{Colors.BOLD}{Colors.BRIGHT_YELLOW}Available Commands:{Colors.RESET}
-  {Colors.BRIGHT_GREEN}/help{Colors.RESET}      - Show this help message
-  {Colors.BRIGHT_GREEN}/clear{Colors.RESET}     - Clear session history (keep system prompt)
-  {Colors.BRIGHT_GREEN}/history{Colors.RESET}   - Show current session message count
-  {Colors.BRIGHT_GREEN}/stats{Colors.RESET}     - Show session statistics
-  {Colors.BRIGHT_GREEN}/log{Colors.RESET}       - Show log directory and recent files
-  {Colors.BRIGHT_GREEN}/log <file>{Colors.RESET} - Read a specific log file
-  {Colors.BRIGHT_GREEN}/exit{Colors.RESET}      - Exit program (also: exit, quit, q)
+{Colors.BOLD}{Colors.BRIGHT_YELLOW}可用命令:{Colors.RESET}
+  {Colors.BRIGHT_GREEN}/help{Colors.RESET}      - 显示帮助信息
+  {Colors.BRIGHT_GREEN}/clear{Colors.RESET}     - 清空会话历史（保留系统提示词）
+  {Colors.BRIGHT_GREEN}/history{Colors.RESET}   - 显示当前会话消息数量
+  {Colors.BRIGHT_GREEN}/stats{Colors.RESET}     - 显示会话统计信息
+  {Colors.BRIGHT_GREEN}/log{Colors.RESET}       - 显示日志目录和最近文件
+  {Colors.BRIGHT_GREEN}/log <file>{Colors.RESET} - 读取指定日志文件
+  {Colors.BRIGHT_GREEN}/exit{Colors.RESET}      - 退出程序 (也可以用: exit, quit, q)
 
-{Colors.BOLD}{Colors.BRIGHT_YELLOW}Keyboard Shortcuts:{Colors.RESET}
-  {Colors.BRIGHT_CYAN}Esc{Colors.RESET}        - Cancel current agent execution
-  {Colors.BRIGHT_CYAN}Ctrl+C{Colors.RESET}     - Exit program
-  {Colors.BRIGHT_CYAN}Ctrl+U{Colors.RESET}     - Clear current input line
-  {Colors.BRIGHT_CYAN}Ctrl+L{Colors.RESET}     - Clear screen
-  {Colors.BRIGHT_CYAN}Ctrl+J{Colors.RESET}     - Insert newline (also Ctrl+Enter)
-  {Colors.BRIGHT_CYAN}Tab{Colors.RESET}        - Auto-complete commands
-  {Colors.BRIGHT_CYAN}↑/↓{Colors.RESET}        - Browse command history
-  {Colors.BRIGHT_CYAN}→{Colors.RESET}          - Accept auto-suggestion
+{Colors.BOLD}{Colors.BRIGHT_YELLOW}快捷键:{Colors.RESET}
+  {Colors.BRIGHT_CYAN}Esc{Colors.RESET}        - 取消当前执行
+  {Colors.BRIGHT_CYAN}Ctrl+C{Colors.RESET}     - 退出程序
+  {Colors.BRIGHT_CYAN}Ctrl+U{Colors.RESET}     - 清空当前输入行
+  {Colors.BRIGHT_CYAN}Ctrl+L{Colors.RESET}     - 清屏
+  {Colors.BRIGHT_CYAN}Ctrl+J{Colors.RESET}     - 插入换行符 (也可以用 Ctrl+Enter)
+  {Colors.BRIGHT_CYAN}Tab{Colors.RESET}        - 自动补全命令
+  {Colors.BRIGHT_CYAN}↑/↓{Colors.RESET}        - 浏览命令历史
+  {Colors.BRIGHT_CYAN}→{Colors.RESET}          - 采纳自动补全建议
 
-{Colors.BOLD}{Colors.BRIGHT_YELLOW}Usage:{Colors.RESET}
-  - Enter your task directly, Agent will help you complete it
-  - Agent remembers all conversation content in this session
-  - Use {Colors.BRIGHT_GREEN}/clear{Colors.RESET} to start a new session
-  - Press {Colors.BRIGHT_CYAN}Enter{Colors.RESET} to submit your message
-  - Use {Colors.BRIGHT_CYAN}Ctrl+J{Colors.RESET} to insert line breaks within your message
+{Colors.BOLD}{Colors.BRIGHT_YELLOW}使用方法:{Colors.RESET}
+  - 直接输入任务，Agent 会帮您完成
+  - Agent 会记住本会话的所有对话内容
+  - 使用 {Colors.BRIGHT_GREEN}/clear{Colors.RESET} 开始新会话
+  - 按 {Colors.BRIGHT_CYAN}Enter{Colors.RESET} 提交消息
+  - 使用 {Colors.BRIGHT_CYAN}Ctrl+J{Colors.RESET} 在消息中插入换行
 """
     print(help_text)
 
@@ -235,7 +235,7 @@ def print_session_info(agent: Agent, workspace_dir: Path, model: str):
     print(f"{Colors.DIM}┌{'─' * BOX_WIDTH}┐{Colors.RESET}")
 
     # Header (centered)
-    header_text = f"{Colors.BRIGHT_CYAN}Session Info{Colors.RESET}"
+    header_text = f"{Colors.BRIGHT_CYAN}会话信息{Colors.RESET}"
     header_width = calculate_display_width(header_text)
     header_padding_total = BOX_WIDTH - 1 - header_width  # -1 for leading space
     header_padding_left = header_padding_total // 2
@@ -246,15 +246,15 @@ def print_session_info(agent: Agent, workspace_dir: Path, model: str):
     print(f"{Colors.DIM}├{'─' * BOX_WIDTH}┤{Colors.RESET}")
 
     # Info lines
-    print_info_line(f"Model: {model}")
-    print_info_line(f"Workspace: {workspace_dir}")
-    print_info_line(f"Message History: {len(agent.messages)} messages")
-    print_info_line(f"Available Tools: {len(agent.tools)} tools")
+    print_info_line(f"模型: {model}")
+    print_info_line(f"工作区: {workspace_dir}")
+    print_info_line(f"消息历史: {len(agent.messages)} 条消息")
+    print_info_line(f"可用工具: {len(agent.tools)} 个工具")
 
     # Bottom border
     print(f"{Colors.DIM}└{'─' * BOX_WIDTH}┘{Colors.RESET}")
     print()
-    print(f"{Colors.DIM}Type {Colors.BRIGHT_GREEN}/help{Colors.DIM} for help, {Colors.BRIGHT_GREEN}/exit{Colors.DIM} to quit{Colors.RESET}")
+    print(f"{Colors.DIM}输入 {Colors.BRIGHT_GREEN}/help{Colors.DIM} 查看帮助，{Colors.BRIGHT_GREEN}/exit{Colors.DIM} 退出{Colors.RESET}")
     print()
 
 
